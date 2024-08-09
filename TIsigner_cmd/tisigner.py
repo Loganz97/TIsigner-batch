@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Modified TIsigner script for integration with Google Colab notebook
+Modified TIsigner script for integration with Google Colab notebook (without multiprocessing)
 """
 
 import os
 import re
 import time
 import warnings
-from multiprocessing import Pool
 warnings.filterwarnings("ignore", category=FutureWarning)
 import numpy as np
 from libs import data, functions
@@ -49,7 +48,7 @@ def get_threshold(n):
     return threshold
 
 def tisigner_optimize(sequence, output='result', codons=9, utr=data.pET21_UTR, 
-                      host='ecoli', niter=50, result=20, target_opening_energy=None, 
+                      host='ecoli', niter=50, result=1, target_opening_energy=None, 
                       filter_sites=None, termcheck=False, seed=0):
     '''Main function to run TIsigner optimization'''
     
@@ -72,9 +71,6 @@ def tisigner_optimize(sequence, output='result', codons=9, utr=data.pET21_UTR,
         host = 'ecoli'
         plfold_args = data.RNAPLFOLD_ECOLI
     
-    if result > 50:
-        result = 50
-    
     # Set threshold
     if host == 'ecoli' and utr == data.pET21_UTR:
         threshold = target_opening_energy
@@ -82,18 +78,16 @@ def tisigner_optimize(sequence, output='result', codons=9, utr=data.pET21_UTR,
         threshold = None
     
     # Instantiate optimization with given parameters
-    seeds = list(range(seed, seed + result))
-    rand_states = [np.random.RandomState(i) for i in seeds]
     new_opt = functions.Optimiser(seq=s, host=host, ncodons=c, utr=utr,
                                   niter=niter, threshold=threshold,
                                   rms_sites=filter_sites)
     
-    # Run optimizer (multiprocess)
-    with Pool(result) as pool:
-        results = pool.map(new_opt.simulated_anneal, rand_states)
+    # Run optimizer
+    rand_state = np.random.RandomState(seed)
+    result = new_opt.simulated_anneal(rand_state)
     
     # Format results
-    result_df = functions.sort_results(functions.sa_results_parse(results,
+    result_df = functions.sort_results(functions.sa_results_parse([result],
                                        threshold=threshold, termcheck=termcheck),
                                        direction=new_opt.direction, termcheck=termcheck)
     
