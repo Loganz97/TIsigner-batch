@@ -1,0 +1,12 @@
+name: tisigner_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.10
+  - viennarna=2.6.4
+  - numpy
+  - pandas
+  - biopython
+  - pip
