@@ -5,6 +5,8 @@ Created on Tue May  7 20:56:34 2019
 
 @author: bikash
 
+Edits by Logan Hessefort 11 August 2024
+
 Part of TIsigner
 
 """
@@ -337,22 +339,13 @@ def get_accs(prob):
 def min_dist_from_start(refseq, tstseq, max_len=50):
     '''max_len in codons (useful for primer selection only)
     max_len is used to generate scores which again are useful for primer only.
-    returns hamming distance and distance from start nt
+    returns hamming distance and the test sequence without marks
     '''
     if len(refseq) != len(tstseq):
         raise ValueError('Sequence length mismatch for Hamming '
                          'distance computation.')
     hamming_dist = sum(nt1 != nt2 for nt1, nt2 in zip(refseq, tstseq))
-    elem1 = [refseq[i:i+1] for i in range(0, len(refseq))]
-    elem2 = [tstseq[i:i+1] for i in range(0, len(tstseq))]
-
-    high_seq = '' #sequence with highlighted difference
-    for i, v in enumerate(elem1):
-        if elem2[i] == v:
-            high_seq+=elem2[i]
-        else:
-            high_seq+="<mark>"+elem2[i]+"</mark>"
-    return hamming_dist, high_seq
+    return hamming_dist, tstseq
 
 def reverse_complement(seq):
     seq = seq.upper().replace("U", "T")
@@ -399,18 +392,16 @@ def sa_results_parse(results, threshold=None, termcheck=False):
 
 def sort_results(df, direction='decrease', termcheck=False):
     '''sorting results
-    Sequence has sequences with difference highlighted by using
-    <mark></mark tag.
     '''
     org_seq = df['org_sq'][0]
     cols = ['Sequence', 'Accessibility']
     cols_for_mismatches = ['Mismatches', 'Sequence']
     cols_for_sort = ['Mismatches', 'Accessibility']
-    bool_for_sort = [True]
+    bool_for_sort = [True]  # Initialize with a boolean True
     if direction == 'decrease':
-        bool_for_sort.append('True')
+        bool_for_sort.append(True)  # Append boolean True
     else:
-        bool_for_sort.append('False')
+        bool_for_sort.append(False)  # Append boolean False
     ecoli = False
 
     if 'pExpressed' in df.columns: #for pET21 and ecoli
@@ -426,7 +417,6 @@ def sort_results(df, direction='decrease', termcheck=False):
             bool_for_sort.insert(cols_for_sort.index('pExpressed'), True)
          ecoli = True
 
-
     if 'Hits' in df.columns:
          cols.append('Hits')
          cols_for_sort.insert(0, 'Hits')
@@ -434,14 +424,13 @@ def sort_results(df, direction='decrease', termcheck=False):
     if 'E_val' in df.columns:
          cols.append('E_val')
 
-
-
     sequences_df = df[cols].copy()
     sequences_df['Type'] = 'Optimised'
-    sequences_df[cols_for_mismatches] = pd.DataFrame(sequences_df['Sequence']\
-                .apply(lambda x:min_dist_from_start(org_seq, x)).values.\
-                tolist(), index=sequences_df.index)
-
+    
+    # Calculate mismatches without modifying the sequence
+    mismatches_and_sequences = sequences_df['Sequence'].apply(lambda x: min_dist_from_start(org_seq, x))
+    sequences_df['Mismatches'] = mismatches_and_sequences.apply(lambda x: x[0])
+    sequences_df['Sequence'] = mismatches_and_sequences.apply(lambda x: x[1])
 
     sequences_df.sort_values(cols_for_sort, ascending=bool_for_sort, \
                              inplace=True)
@@ -449,25 +438,33 @@ def sort_results(df, direction='decrease', termcheck=False):
         sequences_df.drop(['closetothreshold'], inplace=True, axis=1)
 
     if ecoli is True:
-        res_df = sequences_df.append({"Sequence":org_seq, \
-                              "Accessibility":df['org_accs'][0], \
-                              "pExpressed":df['org_pexpr'][0], \
-                              "Type":"Input"}, ignore_index=True)
+        new_row = pd.DataFrame({
+            "Sequence": [org_seq],
+            "Accessibility": [df['org_accs'][0]],
+            "pExpressed": [df['org_pexpr'][0]],
+            "Type": ["Input"],
+            "Mismatches": [0]
+        })
+        res_df = pd.concat([sequences_df, new_row], ignore_index=True)
         res_df['pExpressed'] = res_df['pExpressed'].round(2)
     else:
-        res_df = sequences_df.append({"Sequence":org_seq, \
-                              "Accessibility":df['org_accs'][0], \
-                              "Type":"Input"}, ignore_index=True)
+        new_row = pd.DataFrame({
+            "Sequence": [org_seq],
+            "Accessibility": [df['org_accs'][0]],
+            "Type": ["Input"],
+            "Mismatches": [0]
+        })
+        res_df = pd.concat([sequences_df, new_row], ignore_index=True)
 
-    res_df.loc[0,"Type"]="Selected"
+    res_df.loc[0, "Type"] = "Selected"
     res_df["Accessibility"] = res_df["Accessibility"].round(2)
 
     if termcheck is True:
         o_hit, o_eval = check_term_org(org_seq)
-        res_df.loc[res_df.index[res_df['Type'] == 'Input']]['Hits'] = o_hit
-        res_df.loc[res_df.index[res_df['Type'] == 'Input']]['E_val'] = o_eval
+        res_df.loc[res_df['Type'] == 'Input', 'Hits'] = o_hit
+        res_df.loc[res_df['Type'] == 'Input', 'E_val'] = o_eval
+    
     return res_df
-
 
 def send_data(x, utr=data.pET21_UTR, host='ecoli'):
     '''send json data back
@@ -710,7 +707,79 @@ def parse_input_rms(request_json):
         rms = parse_rms(valid_rms(request_json.get('customRestriction')))
     return rms
 
+def sort_results(df, direction='decrease', termcheck=False):
+    '''sorting results
+    Sequence has sequences with difference highlighted by using
+    <mark></mark tag.
+    '''
+    org_seq = df['org_sq'][0]
+    cols = ['Sequence', 'Accessibility']
+    cols_for_mismatches = ['Mismatches', 'Sequence']
+    cols_for_sort = ['Mismatches', 'Accessibility']
+    bool_for_sort = [True]  # Initialize with a boolean True
+    if direction == 'decrease':
+        bool_for_sort.append(True)  # Append boolean True
+    else:
+        bool_for_sort.append(False)  # Append boolean False
+    ecoli = False
 
+    if 'pExpressed' in df.columns: #for pET21 and ecoli
+         cols.append('pExpressed')
+         cols_for_sort.insert(0, 'pExpressed')
+         if 'closetothreshold' in df.columns:
+             cols.append('closetothreshold')
+             cols_for_sort.insert(0, 'closetothreshold')
+             bool_for_sort.insert(0, True)
+         if direction == 'decrease':
+             bool_for_sort.insert(cols_for_sort.index('pExpressed'), False) #sort by pexpressed
+         else:
+            bool_for_sort.insert(cols_for_sort.index('pExpressed'), True)
+         ecoli = True
+
+    if 'Hits' in df.columns:
+         cols.append('Hits')
+         cols_for_sort.insert(0, 'Hits')
+         bool_for_sort.insert(cols_for_sort.index('Hits'), True)
+    if 'E_val' in df.columns:
+         cols.append('E_val')
+
+    sequences_df = df[cols].copy()
+    sequences_df['Type'] = 'Optimised'
+    sequences_df[cols_for_mismatches] = pd.DataFrame(sequences_df['Sequence']\
+                .apply(lambda x:min_dist_from_start(org_seq, x)).values.\
+                tolist(), index=sequences_df.index)
+
+    sequences_df.sort_values(cols_for_sort, ascending=bool_for_sort, \
+                             inplace=True)
+    if 'closetothreshold' in sequences_df.columns:
+        sequences_df.drop(['closetothreshold'], inplace=True, axis=1)
+
+    if ecoli is True:
+        new_row = pd.DataFrame({
+            "Sequence": [org_seq],
+            "Accessibility": [df['org_accs'][0]],
+            "pExpressed": [df['org_pexpr'][0]],
+            "Type": ["Input"]
+        })
+        res_df = pd.concat([sequences_df, new_row], ignore_index=True)
+        res_df['pExpressed'] = res_df['pExpressed'].round(2)
+    else:
+        new_row = pd.DataFrame({
+            "Sequence": [org_seq],
+            "Accessibility": [df['org_accs'][0]],
+            "Type": ["Input"]
+        })
+        res_df = pd.concat([sequences_df, new_row], ignore_index=True)
+
+    res_df.loc[0, "Type"] = "Selected"
+    res_df["Accessibility"] = res_df["Accessibility"].round(2)
+
+    if termcheck is True:
+        o_hit, o_eval = check_term_org(org_seq)
+        res_df.loc[res_df['Type'] == 'Input', 'Hits'] = o_hit
+        res_df.loc[res_df['Type'] == 'Input', 'E_val'] = o_eval
+    return res_df
+    
 def parse_fine_tune(request_json):
     '''parse fine tune level to accs
     '''
@@ -769,6 +838,3 @@ def last_modified(filepath):
     last_modif = os.path.getmtime(filepath)
     datim = str(datetime.datetime.fromtimestamp(last_modif))
     return datim.split(" ")[0]
-
-
-
