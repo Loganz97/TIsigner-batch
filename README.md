@@ -25,7 +25,7 @@ This repository originally contained source for the following:
 
 ## Original Research and Publications
 
-This paper describes [TIsigner][[(https://doi.org/10.1371/journal.pcbi.1009461)]].
+This paper describes [TIsigner](https://doi.org/10.1371/journal.pcbi.1009461).
 
 ## Installation Instructions
 
