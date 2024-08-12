@@ -12,7 +12,7 @@ Part of TIsigner
 """
 
 import os
-#import sys
+import sys
 import datetime
 import secrets
 import string
