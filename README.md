@@ -25,7 +25,7 @@ This repository originally contained source for the following:
 
 ## Original Research and Publications
 
-The repository to reproduce the results and figures for the [PLOS Computational Biology paper](https://doi.org/10.1371/journal.pcbi.1009461) is available [here](https://github.com/Gardner-BinfLab/TIsigner_paper_2019). This paper describes [TIsigner](https://tisigner.otago.ac.nz/tisigner).
+This paper describes [TIsigner](https://tisigner.otago.ac.nz/tisigner).
 
 ## Installation Instructions
 
