@@ -4,12 +4,12 @@
 Created on Tue Jun 25 13:04:37 2019
 
 @author: bikash
+Edited by Logan Hessefort on August 12, 2024
 """
 
 import os
 import sys
 import re
-import time
 import argparse
 from multiprocessing import Pool
 import warnings
@@ -22,8 +22,6 @@ class SubstitutionException(Exception):
     '''Exception when codon substitution range greater then sequence.
     '''
     pass
-
-
 
 def valid_input_seq(seq):
     '''check if given sequence is valid.
@@ -45,7 +43,6 @@ def valid_input_seq(seq):
 
     return seq
 
-
 def valid_rms(rms=None):
     '''check if given restriction modification site pattern is valid.
     '''
@@ -59,12 +56,10 @@ def valid_rms(rms=None):
             raise argparse.ArgumentTypeError('Unknown nucleotides.')
     return rms
 
-
 def get_threshold(n):
     '''return threshold opening energy(accessibility) from given
     score
     '''
-    
     try:
         if float(n) < 5 or float(n) >30:
             raise argparse.ArgumentTypeError('Please input opening energy in range '+
@@ -79,8 +74,6 @@ def get_threshold(n):
                                              '5 to 30 only. ')
     return threshold
 
-
-
 def valid_utr(seq):
     '''validate UTR
     '''
@@ -91,8 +84,6 @@ def valid_utr(seq):
     elif not pattern.match(seq):
         raise argparse.ArgumentTypeError('Unknown nucleotides.')
     return seq
-
-
 
 def check_arg(args=None):
     '''arguments.
@@ -168,56 +159,39 @@ def check_arg(args=None):
             results.termcheck,
             results.seed)
 
-
 def main():
-
-
     #make dir for results
     mypath = os.path.join(os.getcwd(), 'results', '')
-    if os.path.exists(mypath):
-        pass
-    else:
-        os.makedirs(os.path.join(os.getcwd(), 'results', ''))
-
-
-
-
-
+    if not os.path.exists(mypath):
+        os.makedirs(mypath)
 
     if t == 'ecoli' and u == data.pET21_UTR:
         threshold = e
-
     else:
         threshold = None
+
     #instantitate optimisation with given parameters
     seeds = list(range(d, d + r))
     rand_states = [np.random.RandomState(i) for i in seeds]
-    new_opt = functions.Optimiser(seq=str(s), host=t, ncodons=c, utr=u, \
-                                   niter=n, threshold=threshold, \
+    new_opt = functions.Optimiser(seq=str(s), host=t, ncodons=c, utr=u,
+                                   niter=n, threshold=threshold,
                                    rms_sites=f)
 
-
     #run optimiser (multiprocess)
-    pools = Pool(r)
-    results = []
-    functions.progress(0, r)
-    for result in pools.imap(new_opt.simulated_anneal,\
-                                rand_states):
-        results.append(result)
-        functions.progress(len(results), r)
-    pools.close()
-    pools.join()
-
+    with Pool(r) as pool:
+        results = []
+        functions.progress(0, r)
+        for result in pool.imap(new_opt.simulated_anneal, rand_states):
+            results.append(result)
+            functions.progress(len(results), r)
 
     #format results in nice csv
-
-    result_df = functions.sort_results(functions.sa_results_parse(results, \
-                                        threshold=threshold, termcheck=m), \
+    result_df = functions.sort_results(functions.sa_results_parse(results,
+                                        threshold=threshold, termcheck=m),
                                        direction=new_opt.direction, termcheck=m)
 
-    
     #fancy csv file for results
-    cols = ['Type', 'Sequence', 'Accessibility', 'pExpressed', \
+    cols = ['Type', 'Sequence', 'Accessibility', 'pExpressed',
             'Hits', 'E_val', 'Mismatches']
     
     if 'Hits' not in result_df.columns:
@@ -227,20 +201,16 @@ def main():
         cols.remove('pExpressed')
     tmp_df = result_df[cols].copy()
     
-    columns_rename = {'pExpressed':'Score',\
-                   'Accessibility':'Opening Energy', \
+    columns_rename = {'pExpressed':'Score',
+                   'Accessibility':'Opening Energy',
                    'Sequence':'Sequence', 'Hits':'Term. Hits'}
-    tmp_df.rename(columns=columns_rename, inplace='True')
-    export_df = tmp_df.reindex(np.roll(tmp_df.index,\
+    tmp_df.rename(columns=columns_rename, inplace=True)
+    export_df = tmp_df.reindex(np.roll(tmp_df.index,
                                        shift=1)).reset_index(drop=True)
 
-
-
     #export
-    filename = mypath + o +'_'+time.strftime("%Y%m%d-%H%M%S")+'.csv'
+    filename = os.path.join(mypath, f"{o}.csv")
     export_df.to_csv(filename, sep=',', encoding='utf-8', index=False)
-
-
 
     print('\nSummary: \n========')
     try:
@@ -250,9 +220,7 @@ def main():
             print(export_df[['Type', 'Opening Energy', 'Score']][:2])
     except KeyError:
         print(export_df[['Type', 'Opening Energy']][:2])
-    print('\nPlease check results folder for full results!\n')
-
-
+    print(f'\nResults have been saved to {filename}\n')
 
 if __name__ == '__main__':
     s, o, c, u, t, n, r, e, f, m, d = check_arg(sys.argv[1:])
@@ -273,4 +241,3 @@ if __name__ == '__main__':
     if r > 50:
         r = 50
     main()
-
