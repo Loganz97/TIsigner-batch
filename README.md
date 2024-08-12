@@ -1,4 +1,4 @@
-# TIsigner (Translation Initiation coding region designer) -batch
+# TIsigner (Translation Initiation coding region designer)-batch
 
 This repository contains a modified version of TIsigner, adapted for batch processing of DNA sequences. The original TIsigner was developed for designing coding regions for optimal translation initiation.
 
